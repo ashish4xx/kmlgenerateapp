@@ -54,14 +54,17 @@ def create_kml(route_file, kml_file, api_key):
         raise KeyError("Columns 'center_lat' and/or 'center_lon' not found in DataFrame")
 
     kml = simplekml.Kml()
+    all_route_coordinates = []
 
     for i in range(len(df) - 1):
         origin = f"{df.loc[i, 'center_lat']},{df.loc[i, 'center_lon']}"
         destination = f"{df.loc[i + 1, 'center_lat']},{df.loc[i + 1, 'center_lon']}"
         route_coordinates = get_route_coordinates(origin, destination, api_key)
-        if route_coordinates:
+        all_route_coordinates.extend(route_coordinates)
+        if  all_route_coordinates:
             linestring = kml.newlinestring(name=f"Route from {df.loc[i, 'Bus Stop']} to {df.loc[i + 1, 'Bus Stop']}")
             linestring.coords = [(lng, lat) for lat, lng in route_coordinates]
+            linestring.coords = all_route_coordinates
             linestring.style.linestyle.color = simplekml.Color.blue
             linestring.style.linestyle.width = 5
 
