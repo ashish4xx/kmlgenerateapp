@@ -75,7 +75,7 @@ st.write("Upload the bus stops and bus routes Excel files to generate a KML file
 
 stops_file = st.file_uploader("Upload Bus Stops File", type=["xlsx"])
 route_file = st.file_uploader("Upload Bus Routes File", type=["xlsx"])
-api_key = st.text_input("AIzaSyB9WZSBmm4pvLiHAfUFSnchnPtxRMrIVaU")
+api_key = st.text_input("Use this if you dont have your API Key 'AIzaSyB9WZSBmm4pvLiHAfUFSnchnPtxRMrIVaU'")
 
 if st.button("Generate KML"):
     if stops_file is not None and route_file is not None and api_key:
