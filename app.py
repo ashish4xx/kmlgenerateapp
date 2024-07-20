@@ -4,6 +4,7 @@ import simplekml
 import polyline as pl
 import requests
 import os
+import zipfile
 
 
 # Function to merge coordinates
@@ -46,45 +47,59 @@ def get_route_coordinates(origin, destination, api_key):
         return []
 
 
-# Function to create KML file
-def create_kml(route_file, kml_file, api_key):
-    df = pd.read_excel(route_file)
+# Function to create KML files for each sheet
+def create_kml(route_file, api_key, output_dir):
+    route_file_df = pd.ExcelFile(route_file)
 
-    if 'center_lat' not in df.columns or 'center_lon' not in df.columns:
-        raise KeyError("Columns 'center_lat' and/or 'center_lon' not found in DataFrame")
+    kml_files = []
 
-    kml = simplekml.Kml()
-    all_route_coordinates = []
+    for sheet_name in route_file_df.sheet_names:
+        df = pd.read_excel(route_file_df, sheet_name=sheet_name)
 
-    for i in range(len(df) - 1):
-        origin = f"{df.loc[i, 'center_lat']},{df.loc[i, 'center_lon']}"
-        destination = f"{df.loc[i + 1, 'center_lat']},{df.loc[i + 1, 'center_lon']}"
-        route_coordinates = get_route_coordinates(origin, destination, api_key)
-        all_route_coordinates.extend(route_coordinates)
-        if  all_route_coordinates:
-            linestring = kml.newlinestring(name=f"Route from {df.loc[i, 'Bus Stop']} to {df.loc[i + 1, 'Bus Stop']}")
-            linestring.coords = [(lng, lat) for lat, lng in route_coordinates]
-            linestring.coords = all_route_coordinates
-            linestring.style.linestyle.color = simplekml.Color.blue
-            linestring.style.linestyle.width = 5
+        if 'center_lat' not in df.columns or 'center_lon' not in df.columns:
+            raise KeyError("Columns 'center_lat' and/or 'center_lon' not found in DataFrame")
 
-    kml.save(kml_file)
+        kml = simplekml.Kml()
+        all_route_coordinates = []
+
+        for i in range(len(df) - 1):
+            origin = f"{df.loc[i, 'center_lat']},{df.loc[i, 'center_lon']}"
+            destination = f"{df.loc[i + 1, 'center_lat']},{df.loc[i + 1, 'center_lon']}"
+            route_coordinates = get_route_coordinates(origin, destination, api_key)
+            all_route_coordinates.extend(route_coordinates)
+
+            if all_route_coordinates:
+                linestring = kml.newlinestring(
+                    name=f"Route from {df.loc[i, 'Bus Stop']} to {df.loc[i + 1, 'Bus Stop']}")
+                linestring.coords = [(lng, lat) for lat, lng in all_route_coordinates]
+                linestring.style.linestyle.color = simplekml.Color.blue
+                linestring.style.linestyle.width = 5
+
+        kml_file_name = os.path.join(output_dir, f"{sheet_name}.kml")
+        kml.save(kml_file_name)
+        kml_files.append(kml_file_name)
+
+    return kml_files
 
 
 # Streamlit application
 st.title("Bus Route KML Generator")
 
-st.write("Upload the bus stops and bus routes Excel files to generate a KML file.")
+st.write("Upload the bus stops and bus routes Excel files to generate KML files.")
 
 stops_file = st.file_uploader("Upload Bus Stops File", type=["xlsx"])
 route_file = st.file_uploader("Upload Bus Routes File", type=["xlsx"])
-api_key = st.text_input("Use this if you dont have your API Key 'AIzaSyB9WZSBmm4pvLiHAfUFSnchnPtxRMrIVaU'")
+api_key = st.text_input("Enter your Google Maps API Key. if you not have any, then use this'AIzaSyB9WZSBmm4pvLiHAfUFSnchnPtxRMrIVaU'")
 
-if st.button("Generate KML"):
+if st.button("Generate KMLs"):
     if stops_file is not None and route_file is not None and api_key:
         stops_file_path = stops_file.name
         route_file_path = route_file.name
         merged_route_file_path = "merged_route.xlsx"
+        output_dir = "kml_files"
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
         with open(stops_file_path, "wb") as f:
             f.write(stops_file.getbuffer())
@@ -94,10 +109,16 @@ if st.button("Generate KML"):
 
         try:
             merge_coordinates(stops_file_path, route_file_path, merged_route_file_path)
-            kml_file_path = "bus_route_polyline.kml"
-            create_kml(merged_route_file_path, kml_file_path, api_key)
-            st.success("KML file generated successfully!")
-            st.download_button("Download KML", open(kml_file_path, "rb"), file_name=kml_file_path)
+            kml_files = create_kml(merged_route_file_path, api_key, output_dir)
+
+            # Create a ZIP file
+            zip_file_path = "kml_files.zip"
+            with zipfile.ZipFile(zip_file_path, 'w') as zipf:
+                for kml_file in kml_files:
+                    zipf.write(kml_file)
+
+            st.success("KML files generated successfully!")
+            st.download_button("Download ZIP", open(zip_file_path, "rb"), file_name=zip_file_path)
         except KeyError as e:
             st.error(f"Error: {e}")
     else:
