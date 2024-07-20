@@ -6,6 +6,53 @@ import requests
 import os
 import zipfile
 
+# CSS styling
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #f5f5f5;
+        font-family: 'Arial', sans-serif;
+    }
+    .title {
+        color: #2c3e50;
+        text-align: center;
+    }
+    .file-upload, .api-key, .generate-btn {
+        margin: 20px 0;
+        text-align: center;
+    }
+    .file-upload input, .api-key input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .generate-btn button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+    .generate-btn button:hover {
+        background-color: #2980b9;
+    }
+    .success-msg, .error-msg {
+        text-align: center;
+        margin: 20px 0;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # Function to merge coordinates
 def merge_coordinates(stops_file, route_file, output_file):
@@ -18,16 +65,13 @@ def merge_coordinates(stops_file, route_file, output_file):
         for sheet_name in route_file_df.sheet_names:
             route_df = pd.read_excel(route_file_df, sheet_name=sheet_name)
             route_df['Bus Stop'] = route_df['Bus Stop'].str.title()
-            route_updated_df = pd.merge(route_df, stops_df[['Bus Stop', 'center_lat', 'center_lon']], on='Bus Stop',
-                                        how='left')
+            route_updated_df = pd.merge(route_df, stops_df[['Bus Stop', 'center_lat', 'center_lon']], on='Bus Stop', how='left')
             route_updated_df = route_updated_df.drop_duplicates(subset=['Bus Stop'])
             route_updated_df.to_excel(writer, sheet_name=sheet_name, index=False)
-
 
 # Function to decode polyline
 def decode_polyline(encoded_polyline):
     return pl.decode(encoded_polyline)
-
 
 # Function to get route coordinates from Google Maps API
 def get_route_coordinates(origin, destination, api_key):
@@ -46,11 +90,9 @@ def get_route_coordinates(origin, destination, api_key):
         st.error(f"Request failed: {e}")
         return []
 
-
 # Function to create KML files for each sheet
 def create_kml(route_file, api_key, output_dir):
     route_file_df = pd.ExcelFile(route_file)
-
     kml_files = []
 
     for sheet_name in route_file_df.sheet_names:
@@ -81,17 +123,16 @@ def create_kml(route_file, api_key, output_dir):
 
     return kml_files
 
-
 # Streamlit application
-st.title("Bus Route KML Generator")
+st.title("Bus Route KML Generator", anchor="center", className="title")
 
 st.write("Upload the bus stops and bus routes Excel files to generate KML files.")
 
-stops_file = st.file_uploader("Upload Bus Stops File", type=["xlsx"])
-route_file = st.file_uploader("Upload Bus Routes File", type=["xlsx"])
-api_key = st.text_input("Enter your Google Maps API Key. if you not have any, then use this'AIzaSyB9WZSBmm4pvLiHAfUFSnchnPtxRMrIVaU'")
+stops_file = st.file_uploader("Upload Bus Stops File", type=["xlsx"], key="stops_file", className="file-upload")
+route_file = st.file_uploader("Upload Bus Routes File", type=["xlsx"], key="route_file", className="file-upload")
+api_key = st.text_input("Enter your Google Maps API Key. if you not have any, then use this 'AIzaSyB9WZSBmm4pvLiHAfUFSnchnPtxRMrIVaU'", key="api_key", className="api-key")
 
-if st.button("Generate KMLs"):
+if st.button("Generate KMLs", className="generate-btn"):
     if stops_file is not None and route_file is not None and api_key:
         stops_file_path = stops_file.name
         route_file_path = route_file.name
@@ -117,9 +158,9 @@ if st.button("Generate KMLs"):
                 for kml_file in kml_files:
                     zipf.write(kml_file)
 
-            st.success("KML files generated successfully!")
+            st.success("KML files generated successfully!", className="success-msg")
             st.download_button("Download ZIP", open(zip_file_path, "rb"), file_name=zip_file_path)
         except KeyError as e:
-            st.error(f"Error: {e}")
+            st.error(f"Error: {e}", className="error-msg")
     else:
-        st.error("Please upload both Excel files and enter the API key.")
+        st.error("Please upload both Excel files and enter the API key.", className="error-msg")
